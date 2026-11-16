@@ -1,3 +1,4 @@
+import { posixBinDirs, npmGlobalBin, withPosixPath } from './posix-paths.mjs'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -22,7 +23,7 @@ export function agyCommand(file, args, { platform = process.platform, env = proc
   return { file, args }
 }
 
-export function createAgyResolver({ platform = process.platform, env = process.env, paths = path,
+export function createAgyResolver({ platform = process.platform, arch = process.arch, env = process.env, paths = path,
   home = os.homedir(), io = fs, run = spawnSync, now = Date.now } = {}) {
   let cached
   const exists = file => { try { return io.statSync(file).isFile() } catch { return false } }
@@ -37,14 +38,27 @@ export function createAgyResolver({ platform = process.platform, env = process.e
     const candidates = [configured, ...extensions.flatMap(ext => search.map(dir => paths.join(dir, `agy${ext}`))),
       platform === 'win32' ? paths.join(env.LOCALAPPDATA || paths.join(home, 'AppData', 'Local'), 'agy', 'bin', 'agy.exe')
         : paths.join(home, '.local', 'bin', 'agy')].filter(Boolean)
-    for (const file of new Set(candidates)) {
+    // Lazy generator keeps npm prefix discovery behind the ordinary candidates.
+    function* allCandidates() {
+      yield* candidates
+      if (platform !== 'win32') {
+        const options = { platform, arch, env, home, paths, io, run }
+        yield* posixBinDirs(options).map(dir => paths.join(dir, 'agy'))
+        const npmBin = npmGlobalBin(options)
+        if (npmBin) yield paths.join(npmBin, 'agy')
+      }
+    }
+    const seen = new Set()
+    for (const file of allCandidates()) {
+      if (seen.has(file)) continue
+      seen.add(file)
       if (!exists(file)) { tried.push(`${file}: missing`); continue }
       let valid = true
       for (const args of [['--version'], ['acp', '--help']]) {
         let result
         try {
           const command = agyCommand(file, args, { platform, env, paths })
-          result = run(command.file, command.args, { ...command, env: cleanAgyEnv(env), encoding: 'utf8', timeout: 3000, windowsHide: true, maxBuffer: 256 * 1024 })
+          result = run(command.file, command.args, { ...command, env: withPosixPath(cleanAgyEnv(env), { platform, home, paths }), encoding: 'utf8', timeout: 3000, windowsHide: true, maxBuffer: 256 * 1024 })
         } catch { valid = false; tried.push(`${file}: cannot launch safely`); break }
         const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
         if (result.error || result.status !== 0) {

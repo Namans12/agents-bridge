@@ -1,6 +1,6 @@
 {
   "name": "codex",
-  "version": "0.2.4-fullaccess.5",
+  "version": "0.2.4-fullaccess.6",
   "author": {
     "name": "ank1015"
   },
@@ -10,7 +10,7 @@
     "agyPath": {
       "type": "string",
       "title": "Antigravity binary",
-      "description": "Optional absolute path to Google's official agy CLI >= 1.5.1. Blank discovers PATH and the official Windows install directory. Run agy yourself to sign in and turn Use AI Credits off in /settings.",
+      "description": "Optional absolute path to Google's official agy CLI >= 1.5.1. Blank discovers PATH, common Unix install directories and the official Windows install directory. Run agy yourself to sign in and turn Use AI Credits off in /settings.",
       "default": ""
     },
     "codexPath": {
@@ -22,7 +22,7 @@
     "nodePath": {
       "type": "string",
       "title": "Node binary",
-      "description": "Node 18+ used to run the bridge process. When this path does not exist, `node` is looked up on PATH.",
+      "description": "Node 18+ used to run the bridge process. Blank or missing paths fall back to common Homebrew/system Node locations, then `node` on PATH. Custom version-manager installations may need an absolute path.",
       "default": "/opt/homebrew/bin/node"
     },
     "defaultEffort": {

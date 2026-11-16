@@ -217,9 +217,14 @@ function newSocket(): Socket {
   return { promise, resolve, reject }
 }
 
-/** The configured binary when it is on disk, else its bare name, which the spawn finds on PATH. */
+/** Prefer the configured Node, then common Unix installs, then the inherited PATH. */
 async function resolveBinary($: Engine, configured: string, name: string): Promise<string> {
-  return (await $.fs.exists(configured)) ? configured : name
+  if (configured && await $.fs.exists(configured)) return configured
+  // Finder-launched Claude may have no Homebrew PATH. Windows keeps its PATH fallback.
+  for (const file of ['/opt/homebrew/bin/node', '/usr/local/bin/node', '/usr/bin/node', '/bin/node']) {
+    if (await $.fs.exists(file)) return file
+  }
+  return name
 }
 
 /** Starts the relay, unless it runs; its events reach `onEvent` in order until the daemon exits (the session ended, or it sat idle). */

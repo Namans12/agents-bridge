@@ -1,3 +1,4 @@
+import { posixBinDirs, npmGlobalBin, withPosixPath } from './posix-paths.mjs'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -27,7 +28,8 @@ export function createCodexResolver({ platform = process.platform, arch = proces
         return
       }
       for (const args of [['--version'], ['app-server', '--help']]) {
-        const result = run(file, args, { encoding: 'utf8', timeout: 3000, windowsHide: true, maxBuffer: 256 * 1024 })
+        const result = run(file, args, { encoding: 'utf8', timeout: 3000, windowsHide: true, maxBuffer: 256 * 1024,
+          ...(platform !== 'win32' ? { env: withPosixPath(env, { platform, home, paths }) } : {}) })
         const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
         if (result.error || result.status !== 0 || !(args[0] === '--version' ? /codex\S*\s+\d/i : /--listen\b/).test(output)) {
           // Do not include command output: user wrappers could print credentials.
@@ -43,7 +45,16 @@ export function createCodexResolver({ platform = process.platform, arch = proces
     const search = (env.PATH ?? env.Path ?? '').split(platform === 'win32' ? ';' : ':')
       .map(dir => dir.replace(/^"|"$/g, '')).filter(Boolean)
     if (platform !== 'win32') {
-      for (const dir of search) { found = verify(paths.join(dir, 'codex')); if (found) return found }
+      const options = { platform, arch, env, home, paths, io, run }
+      for (const dir of posixBinDirs(options)) { found = verify(paths.join(dir, 'codex')); if (found) return found }
+      const npmBin = npmGlobalBin(options)
+      if (npmBin) { found = verify(paths.join(npmBin, 'codex')); if (found) return found }
+      const bundles = platform === 'darwin' ? ['/Applications', paths.join(home, 'Applications')].flatMap(root => [
+        paths.join(root, 'Codex.app', 'Contents', 'Resources', 'codex'),
+        paths.join(root, 'ChatGPT.app', 'Contents', 'Resources', 'codex-cli', 'bin', 'codex'),
+        paths.join(root, 'ChatGPT.app', 'Contents', 'Resources', 'codex'),
+      ]) : []
+      for (const file of [paths.join(home, '.codex', 'codex'), ...bundles]) { found = verify(file); if (found) return found }
     } else {
       // PATHEXT-aware, but only .exe is suitable for a shell-free native spawn.
       const extensions = [...new Set(['.exe', ...(env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD').toLowerCase().split(';'), '.ps1'])]

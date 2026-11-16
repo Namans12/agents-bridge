@@ -45,6 +45,8 @@ import path from 'node:path'
 import readline from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import { createDesktopSync } from './desktop-sync.mjs'
+import { bridgePaths } from './socket-paths.mjs'
+import { withPosixPath } from './posix-paths.mjs'
 import { resolveCodex } from './resolve-codex.mjs'
 import { authState, sameAuthState } from './auth-state.mjs'
 import { createAntigravityBackend } from './antigravity.mjs'
@@ -67,6 +69,8 @@ const BUILD = createHash('sha256').update(SELF).update(fs.readFileSync(SELF))
   .update(fs.readFileSync(new URL('./auth-state.mjs', import.meta.url)))
   .update(fs.readFileSync(new URL('./antigravity.mjs', import.meta.url)))
   .update(fs.readFileSync(new URL('./resolve-agy.mjs', import.meta.url)))
+  .update(fs.readFileSync(new URL('./socket-paths.mjs', import.meta.url)))
+  .update(fs.readFileSync(new URL('./posix-paths.mjs', import.meta.url)))
   .update(path.resolve(process.env.CODEX_HOME || path.join(os.homedir(), '.codex')))
   .update(JSON.stringify([process.env.OPENAI_API_KEY, process.env.CODEX_API_KEY, process.env.CODEX_ACCESS_TOKEN]))
   .digest('hex').slice(0, 8)
@@ -128,6 +132,7 @@ const sendJson = (res, status, value) => {
 
 export async function daemon(codexPath, dir, { resolve = resolveCodex, acpClientFactory, spawnServer = file => spawn(file, ['app-server', '--listen', 'stdio://'], {
   stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+  ...(process.platform !== 'win32' ? { env: withPosixPath() } : {}),
 }) } = {}) {
   const socketPath = socketFor(dir)
   const desktop = createDesktopSync({ log: line => process.stderr.write(`${line}\n`) })
@@ -565,14 +570,17 @@ const readHealth = async socketPath => {
 
 const isHealthy = async socketPath => (await readHealth(socketPath)) !== null
 
+const layoutFor = sessionKey => bridgePaths({ platform: process.platform, tmpdir: os.tmpdir(),
+  username: os.userInfo().username, uid: process.getuid?.(), sessionKey, build: BUILD })
+
 const privateBase = () => {
   if (IS_WINDOWS) {
     // No uid or POSIX modes on Windows: a per-user directory under the user's own temp dir (already ACL-private).
-    const base = path.join(os.tmpdir(), `cxb-${os.userInfo().username.replace(/[^A-Za-z0-9]/g, '')}`)
+    const { base } = layoutFor('default')
     fs.mkdirSync(base, { recursive: true })
     return base
   }
-  const base = `/tmp/cxb-${process.getuid()}`
+  const { base } = layoutFor('default')
   fs.mkdirSync(base, { recursive: true, mode: 0o700 })
   const stat = fs.lstatSync(base)
   if (!stat.isDirectory() || stat.uid !== process.getuid()) throw new Error(`${base} is not a directory this user owns`)
@@ -589,8 +597,8 @@ async function relay(codexPath, sessionKey) {
   }, 1000).unref()
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => process.exit(0))
 
-  const key = sessionKey.replace(/[^A-Za-z0-9]/g, '').slice(0, 16) || 'default'
-  const dir = path.join(privateBase(), `${key}-${BUILD}`)
+  privateBase()
+  const { dir } = layoutFor(sessionKey)
   const socketPath = socketFor(dir)
   // What the plugin connects to; on Windows it is served once the forwarder says it listens
   // (Node cannot stat the socket file there, so the forwarder writes forward.ready).

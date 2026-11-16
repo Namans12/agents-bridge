@@ -32,3 +32,13 @@ test('keyring and config changes are recognized even with a leftover auth file',
   assert.equal(after.externalStore, true)
   assert.equal(sameAuthState(first, after), false)
 })
+
+for (const store of ['keyring', 'auto', 'ephemeral']) test(`${store} credentials with a leftover file are conservatively external`, () => {
+  const io = { readFileSync(file) {
+    return file.endsWith('auth.json') ? 'synthetic-secret' : `# macOS Keychain or other non-file store\ncli_auth_credentials_store = '${store}'\n[other]\nvalue = true\n`
+  } }
+  const state = authState({ CODEX_HOME: '/synthetic-codex' }, io)
+  assert.equal(state.externalStore, true)
+  assert.doesNotMatch(JSON.stringify(state), /synthetic-secret/)
+  assert.equal(sameAuthState(state, authState({ CODEX_HOME: '/synthetic-codex' }, io)), true)
+})

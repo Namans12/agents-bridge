@@ -27,9 +27,9 @@ This repository is a Claude Code plugin (`codex@codex-full-access`) packaged as 
 | `codex:antigravity-gemini` | Antigravity via `agy acp` | Picks an advertised Gemini model. |
 | `codex:antigravity-default` | Antigravity via `agy acp` | Keeps your account's default model. |
 
-Also included: account-switch detection for Codex, automatic discovery of `codex.exe` and `agy`, the real model and effort shown in each task label, and an optional switch that makes jobs appear in the Codex Desktop app without restarting it.
+Also included: account-switch detection for Codex, automatic discovery of Codex and `agy`, the real model and effort shown in each task label, and an optional switch that makes jobs appear in the Codex Desktop app without restarting it.
 
-> **Safety:** Codex jobs run with **full access and no approval prompts** (`danger-full-access`, `approvalPolicy: never`) as your Windows user. Antigravity jobs **auto-approve** permission requests inside the job's folder and deny clearly outside paths; this is not an OS sandbox. Only use this in projects and on machines where that is acceptable.
+> **Safety:** Codex jobs run with **full access and no approval prompts** (`danger-full-access`, `approvalPolicy: never`) as your operating-system user. Antigravity jobs **auto-approve** permission requests inside the job's folder and deny clearly outside paths; this is not an OS sandbox. Only use this in projects and on machines where that is acceptable.
 
 ## Quick start (Windows)
 
@@ -207,6 +207,12 @@ Quit Claude completely (including its tray icon) and reopen it so it reads the n
 
 ### Step 10. Verify
 
+From the cloned repository, run the setup check (it suppresses authentication output and starts no model turns):
+
+```powershell
+node scripts/check-setup.mjs
+```
+
 Start a **new** Claude session from your project folder (plugin changes are only read at startup) and run these test prompts one at a time.
 
 Codex:
@@ -263,9 +269,246 @@ claude plugin install codex@codex-full-access
 
 Check `%USERPROFILE%\.claude\plugins\cache\codex-full-access\codex\` for the version folder you expect, then start a new session. If you edit the plugin yourself, bump the version first.
 
-## macOS and Linux
+## macOS (Apple Silicon) setup, step by step
 
-The code keeps the upstream Unix-socket branch and needs no PowerShell forwarder, but the macOS and Linux paths were **not runtime-tested** in this fork. Install Node 18+, Claude Code, Codex and (optionally) `agy`, clone the repo, then run `claude plugin marketplace add <path>` and `claude plugin install codex@codex-full-access` as above. On macOS the upstream defaults point at the ChatGPT app's Codex binary and Homebrew Node and fall back to `PATH` when those do not exist.
+This release has a **static macOS/Linux review and simulated darwin/arm64 and Linux tests run on Windows**. A real Mac installation, Unix IPC, Keychain access, cancellation and live delegation are still pending owner verification. Run the self-check and both smoke prompts below on your Mac. No PowerShell is needed on macOS/Linux.
+
+### 1. Check Xcode Command Line Tools and Homebrew
+
+Use a native Terminal window on Apple Silicon (avoid running Terminal under Rosetta). Install Command Line Tools if needed, following [Homebrew's requirements](https://docs.brew.sh/Installation):
+
+```bash
+xcode-select --install
+```
+
+If macOS says the tools are already installed, continue. Check Homebrew:
+
+```bash
+brew --version
+```
+
+If missing, use the installer from the [Homebrew homepage](https://brew.sh/):
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Follow the installer's printed shell setup instructions, then open a fresh Terminal. Apple Silicon Homebrew normally lives at `/opt/homebrew`.
+
+### 2. Install Node and Git
+
+Install [Node](https://formulae.brew.sh/formula/node) (18+ required) and [Git](https://formulae.brew.sh/formula/git):
+
+```bash
+brew install node
+```
+
+```bash
+node --version
+```
+
+```bash
+node -p 'process.platform + "/" + process.arch'
+```
+
+Expect `darwin/arm64`. An `x64` Node can run under Rosetta but is not the intended native setup; use `/opt/homebrew/bin/node` and a native Terminal.
+
+```bash
+brew install git
+```
+
+```bash
+git --version
+```
+
+### 3. Install Claude Code and sign in
+
+Use Anthropic's [official macOS installer](https://code.claude.com/docs/en/setup):
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+Alternatively, choose its documented Homebrew cask:
+
+```bash
+brew install --cask claude-code
+```
+
+Open a new Terminal, then:
+
+```bash
+claude --version
+```
+
+Require **2.1.287+**. Start `claude` and complete onboarding/sign-in. Do not use `--safe-mode` or `--bare`; mods/hooks must be enabled, including under organization policy.
+
+### 4. Install Codex and sign in
+
+Choose **one** method from the [official Codex CLI guide](https://learn.chatgpt.com/docs/cli):
+
+Homebrew:
+
+```bash
+brew install --cask codex
+```
+
+Or npm:
+
+```bash
+npm install -g @openai/codex
+```
+
+Or the standalone macOS/Linux installer:
+
+```bash
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+```
+
+Open a new Terminal and verify/sign in using [Codex authentication](https://learn.chatgpt.com/docs/auth):
+
+```bash
+codex --version
+```
+
+```bash
+codex login
+```
+
+```bash
+codex login status
+```
+
+The plugin can also probe `/Applications/Codex.app/Contents/Resources/codex`, the [documented desktop compatibility binary](https://learn.chatgpt.com/docs/reference/troubleshooting#feature-is-working-in-the-codex-cli-but-not-in-the-chatgpt-desktop-app). Installing the CLI separately is easier to diagnose. Desktop and CLI versions can differ. App bundle resources can move, so each candidate must pass version and app-server capability checks.
+
+### 5. Optional: install Antigravity CLI (`agy`)
+
+Google's [official macOS/Linux CLI instructions](https://antigravity.google/docs/getting-started?tab=cli) install `~/.local/bin/agy`:
+
+```bash
+curl -fsSL https://antigravity.google/cli/install.sh | bash
+```
+
+Open a fresh Terminal:
+
+```bash
+agy --version
+```
+
+Require **1.5.1+** with ACP support. Check the CLI, then start it to complete its own sign-in:
+
+```bash
+agy acp --help
+```
+
+```bash
+agy
+```
+
+In `agy`, turn **Use AI Credits OFF** in `/settings` and inspect `/credits` if available for your account/version. The plugin cannot verify that interactive setting. The desktop/IDE launcher alone does not supply the CLI.
+
+### 6. Clone and install the plugin
+
+Keep this folder in place:
+
+```bash
+mkdir -p ~/Tools
+```
+
+```bash
+git clone https://github.com/Namans12/agents-bridge.git ~/Tools/agents-bridge
+```
+
+```bash
+cd ~/Tools/agents-bridge
+```
+
+If replacing another copy of `codex@codex-full-access`, uninstall it and remove its old marketplace first using the same commands as the Windows replacement flow. Otherwise:
+
+```bash
+claude plugin marketplace add ~/Tools/agents-bridge
+```
+
+```bash
+claude plugin install codex@codex-full-access
+```
+
+Leave **Codex binary**, **Node binary** and **Antigravity binary** blank; leave **Default effort** at `per-model`. Unset options may retain the manifest defaults (legacy ChatGPT Codex path and Homebrew Node); missing paths fall back automatically. Discovery covers common Homebrew/system locations, `~/.local/bin`, npm prefixes, `~/.codex` and supported app bundle candidates. Custom Node/version-manager installations may need an absolute **Node binary** path. Do not put `~` or shell quotes in a manual plugin path.
+
+### 7. Optional: project effort
+
+In your working project (not this plugin folder), create `.claude/codex.json`:
+
+```json
+{ "effort": "medium" }
+```
+
+Only effort belongs here; binary overrides belong in plugin options. Codex's fixed full-access policy is unchanged.
+
+### 8. Run the setup check and smoke prompts
+
+From the cloned plugin folder:
+
+```bash
+node scripts/check-setup.mjs
+```
+
+The check prints PASS/WARN/FAIL and exits 1 for failures. It checks versions, the installed plugin version, discovery, login exit status, executable permission and a temporary local Unix socket. It suppresses authentication output, requests no model turns or login changes, and removes its socket probe. A terminal check cannot prove that a Finder-launched Claude inherited the same environment; test that launch separately.
+
+Start a **new** Claude session in your working project. Try these separately:
+
+```text
+Use codex:luna with effort: low to list the files in the current folder, write one sentence on what they are, run `sleep 20`, and say DONE. Do not modify anything.
+```
+
+```text
+Use codex:antigravity-gemini to reply exactly ANTIGRAVITY_OK without using tools or changing files. Wait for its final result.
+```
+
+For Codex, also try steering and cancelling the task from Claude while it sleeps. Check `codex_list` and `codex_result` for its actual state. The Antigravity prompt needs the optional CLI and login.
+
+### 9. Update or switch accounts
+
+```bash
+git -C ~/Tools/agents-bridge pull
+```
+
+```bash
+claude plugin marketplace update codex-full-access
+```
+
+When the repository plugin version changes, refresh the installed copy:
+
+```bash
+claude plugin uninstall codex@codex-full-access
+```
+
+```bash
+claude plugin install codex@codex-full-access
+```
+
+```bash
+claude plugin list
+```
+
+Run the self-check again and start a new session. For tool updates use the same installation method: the Codex standalone installer or npm command above, `brew upgrade --cask codex`, and Anthropic's documented `claude update` for native installs or `brew upgrade claude-code` for Homebrew installs.
+
+To switch Codex accounts, finish existing jobs, sign out/in with the Codex CLI in the same `CODEX_HOME`, then delegate again. File changes are detected at idle. [Explicit Keychain/non-file credentials](https://learn.chatgpt.com/docs/auth#credential-storage) cause conservative server reloads at idle boundaries; a new job waits while another Codex turn runs. Changing `CODEX_HOME` or environment credentials requires fully quitting and relaunching Claude. A browser-only account change does not switch local credentials. `ephemeral` credentials owned only by another process cannot be inherited.
+
+### macOS troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| Works in Terminal, fails when Claude opens from Finder | GUI apps need not inherit shell PATH. Discovery probes absolute Homebrew/system/local paths. Fully quit/reopen Claude after installation. For a custom Node install, set **Node binary** to its absolute executable; use **Codex binary**/**Antigravity binary** for custom backend paths. Try launching Claude from the configured Terminal to compare environments. |
+| npm install works but the plugin cannot find it | Use `npm prefix -g`; on Unix its executables are under `<prefix>/bin` ([npm folder layout](https://docs.npmjs.com/cli/v11/configuring-npm/folders/)). The resolver asks an installed npm for its global prefix offline and honors `npm_config_prefix`/`NPM_CONFIG_PREFIX`. A hidden version manager or custom prefix may still need an absolute override or matching PATH. |
+| Downloaded binary is blocked/quarantined | Reinstall from the official source and follow [Apple's Privacy & Security guidance](https://support.apple.com/en-ph/102445). `xattr` can inspect downloaded-file metadata on the Mac; do not recursively clear quarantine from apps or your home directory. The checker never changes quarantine. |
+| `bad CPU type`, Rosetta, or Node reports `x64` | Use a native Terminal and Apple Silicon Homebrew at `/opt/homebrew`; set **Node binary** to `/opt/homebrew/bin/node`. Reinstall platform-specific npm packages under that Node if needed. The resolver validates binaries by running them, rather than guessing their architecture. |
+| Keychain permission prompt / old Codex account | Allow the official CLI access through the OS prompt as appropriate; run `codex login` yourself. Finish running turns before the next job reloads the account. No credentials or Keychain items are copied by the plugin. Managed credential settings plus a leftover auth file may hide a switch; if unsure, finish jobs and relaunch Claude after switching. |
+| Unix socket path too long | Production uses `/tmp/cxb-<uid>/<16-character-session>-<8-character-build>/s`, independent of `$TMPDIR` and project path. The checker measures UTF-8 bytes against Darwin's 104-byte capacity (reserving NUL). If an error names a long `/var/folders/...` path, check for an older plugin/cache or another tool's socket. `/tmp` resolving to `/private/tmp` still leaves ample room. |
+| `bin/codex-msg` is not executable | In the clone, run `chmod +x bin/codex-msg`. Git now records it as executable and `.gitattributes` enforces LF. Production launches it explicitly through Node, so messaging does not depend on the shebang permission. |
+| Desktop sidebar does not refresh | The optional `CODEX_BRIDGE_DESKTOP_SYNC` relay integration is Windows-only. Read results in Claude; restarting Desktop may discover completed saved threads. |
+
+**Unverified on macOS:** real arm64 installation and subprocess/IPC behavior, GUI launch inheritance, Keychain interaction, cancellation of child processes, live model/account access and interactive AI Credits settings. The legacy `ChatGPT.app/Contents/Resources/codex-cli/bin/codex` manifest default and alternative `ChatGPT.app/Contents/Resources/codex` probe are compatibility heuristics, not current documented install paths. Official commands above were checked in documentation, not executed on a Mac. Linux likewise has static review and simulated tests only.
 
 ## Troubleshooting
 
@@ -293,7 +536,7 @@ claude plugin validate .
 node --test tests/*.test.mjs
 ```
 
-Known baselines on Windows: 38 Node tests pass, and the root mod suite (`claude plugin test .`) has 29 passing tests plus 5 known Unix-path fixture failures. Antigravity is tested against a fake ACP server (`tests/fixtures/fake-agy.mjs`); real `agy` behavior depends on your account and version.
+Windows validation for this release: 83 Node tests pass (original baseline: 38), and the root mod suite (`claude plugin test .`) has 29 passing tests plus 5 known Unix-path fixture failures. Antigravity is tested against a fake ACP server (`tests/fixtures/fake-agy.mjs`); real `agy` behavior depends on your account and version.
 
 ## Notes and limits
 

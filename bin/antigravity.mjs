@@ -1,3 +1,4 @@
+import { withPosixPath } from './posix-paths.mjs'
 // Google's unmodified `agy acp` is the only production transport. No credential files or private APIs.
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -78,7 +79,7 @@ export class AcpClient {
     this.inactivityMs = inactivityMs; this.cancelMs = cancelMs
     this.pending = new Map(); this.toolCalls = new Map(); this.nextId = 1; this.stderr = ''; this.cancelled = false; this.closed = false
     const launch = command ?? agyCommand(resolveAgy(configured), ['acp'])
-    this.child = spawn(launch.file, launch.args, { ...launch, cwd, env: cleanAgyEnv(env), windowsHide: true,
+    this.child = spawn(launch.file, launch.args, { ...launch, cwd, env: withPosixPath(cleanAgyEnv(env)), windowsHide: true,
       detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'] })
     this.child.stdin.on('error', error => this.fail(error))
     this.child.stderr.setEncoding('utf8')
