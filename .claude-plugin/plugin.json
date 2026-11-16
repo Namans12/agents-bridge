@@ -1,0 +1,47 @@
+{
+  "name": "codex",
+  "version": "0.2.4-fullaccess.5",
+  "author": {
+    "name": "ank1015"
+  },
+  "description": "Codex and official Google Antigravity ACP agents as native Claude Code background subagents; Codex full access, Antigravity workspace permission approvals, session-isolated persistence.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "agyPath": {
+      "type": "string",
+      "title": "Antigravity binary",
+      "description": "Optional absolute path to Google's official agy CLI >= 1.5.1. Blank discovers PATH and the official Windows install directory. Run agy yourself to sign in and turn Use AI Credits off in /settings.",
+      "default": ""
+    },
+    "codexPath": {
+      "type": "string",
+      "title": "Codex binary",
+      "description": "Optional Codex CLI override (needs app-server --listen). Leave blank for auto-discovery. Windows searches native PATH executables, npm packages, Desktop CLI installs and the Store package; missing overrides fall back automatically.",
+      "default": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"
+    },
+    "nodePath": {
+      "type": "string",
+      "title": "Node binary",
+      "description": "Node 18+ used to run the bridge process. When this path does not exist, `node` is looked up on PATH.",
+      "default": "/opt/homebrew/bin/node"
+    },
+    "defaultEffort": {
+      "type": "string",
+      "title": "Default effort",
+      "description": "Codex reasoning effort for every model when the prompt sets no effort: header line. per-model: each model's own default, luna max and sol, astra and terra high.",
+      "default": "per-model",
+      "options": [
+        "per-model",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ]
+    }
+  },
+  "homepage": "https://github.com/Namans12/agents-bridge",
+  "repository": "https://github.com/Namans12/agents-bridge",
+  "license": "MIT"
+}
